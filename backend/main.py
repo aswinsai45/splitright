@@ -1,4 +1,5 @@
 from fastapi import Depends, FastAPI
+from routers import groups, expenses, balances
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
 from dependencies import get_current_user
@@ -15,6 +16,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(groups.router, prefix="/groups", tags=["groups"])
+app.include_router(expenses.router, prefix="/expenses", tags=["expenses"])
+app.include_router(balances.router, prefix="/balances", tags=["balances"])
 
 @app.get("/health")
 def health():
