@@ -2,6 +2,7 @@ from fastapi import Depends, FastAPI
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
 from dependencies import get_current_user
+from database import supabase
 
 load_dotenv()
 
@@ -22,3 +23,8 @@ def health():
 @app.get("/me")
 def me(current_user: dict = Depends(get_current_user)):
     return current_user
+
+@app.get("/test-db")
+def test_db():
+    result=supabase.table("profiles").select("*").execute()
+    return result.data
