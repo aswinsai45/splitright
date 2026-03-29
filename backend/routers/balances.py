@@ -29,11 +29,40 @@ def get_balances(group_id: str, current_user: dict = Depends(get_current_user)):
     if not expenses.data:
         return {"balances": {}, "transactions": []}
 
+    # fetch all members with profiles for name resolution
+    members = supabase.table("group_members")\
+        .select("user_id, profiles(display_name, avatar_url)")\
+        .eq("group_id", group_id)\
+        .execute()
+
+    # build a lookup dict: user_id → display_name
+    name_map = {}
+    for m in members.data:
+        profile = m.get("profiles")
+        name_map[m["user_id"]] = profile["display_name"] if profile and profile.get("display_name") else "Unknown"
+
     # run the algorithm
     balances = compute_net_balances(expenses.data)
     transactions = simplify_debts(balances)
 
+    # resolve user IDs to names in transactions
+    named_transactions = []
+    for txn in transactions:
+        named_transactions.append({
+            "from_id": txn["from"],
+            "to_id": txn["to"],
+            "from": name_map.get(txn["from"], txn["from"]),
+            "to": name_map.get(txn["to"], txn["to"]),
+            "amount": txn["amount"],
+        })
+
+    # resolve user IDs to names in balances
+    named_balances = {
+        name_map.get(uid, uid): amount
+        for uid, amount in balances.items()
+    }
+
     return {
-        "balances": balances,
-        "transactions": transactions
+        "balances": named_balances,
+        "transactions": named_transactions,
     }
