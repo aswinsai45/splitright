@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from dependencies import get_current_user
 from database import supabase
-from models import GroupCreate
-from models import SettlementCreate
+from models import GroupCreate, SettlementCreate
 import uuid
 
-router=APIRouter()
+router = APIRouter()
+
 
 @router.post("/")
 def create_group(body: GroupCreate, current_user: dict = Depends(get_current_user)):
@@ -21,7 +21,6 @@ def create_group(body: GroupCreate, current_user: dict = Depends(get_current_use
 
     group_id = result.data[0]["id"]
 
-    # automatically add creator as admin member
     supabase.table("group_members").insert({
         "group_id": group_id,
         "user_id": user_id,
@@ -29,6 +28,7 @@ def create_group(body: GroupCreate, current_user: dict = Depends(get_current_use
     }).execute()
 
     return result.data[0]
+
 
 @router.get("/")
 def get_my_groups(current_user: dict = Depends(get_current_user)):
@@ -39,8 +39,62 @@ def get_my_groups(current_user: dict = Depends(get_current_user)):
         .eq("user_id", user_id)\
         .execute()
 
-    print("GROUPS RESULT:", result.data)
     return result.data
+
+
+@router.get("/join/{invite_token}")
+def get_invite_info(invite_token: str):
+    result = supabase.table("groups")\
+        .select("id, name, description")\
+        .eq("invite_token", invite_token)\
+        .single()\
+        .execute()
+
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Invalid or expired invite link")
+
+    return result.data
+
+
+@router.post("/join/{invite_token}")
+def join_via_invite(
+    invite_token: str,
+    current_user: dict = Depends(get_current_user)
+):
+    user_id = current_user["user_id"]
+
+    group = supabase.table("groups")\
+        .select("id, name")\
+        .eq("invite_token", invite_token)\
+        .single()\
+        .execute()
+
+    if not group.data:
+        raise HTTPException(status_code=404, detail="Invalid or expired invite link")
+
+    group_id = group.data["id"]
+
+    existing = supabase.table("group_members")\
+        .select("*")\
+        .eq("group_id", group_id)\
+        .eq("user_id", user_id)\
+        .execute()
+
+    if existing.data:
+        raise HTTPException(status_code=400, detail="Already a member of this group")
+
+    supabase.table("group_members").insert({
+        "group_id": group_id,
+        "user_id": user_id,
+        "role": "member",
+    }).execute()
+
+    return {
+        "message": "Joined successfully",
+        "group_id": group_id,
+        "group_name": group.data["name"]
+    }
+
 
 @router.get("/{group_id}")
 def get_group(group_id: str, current_user: dict = Depends(get_current_user)):
@@ -55,29 +109,11 @@ def get_group(group_id: str, current_user: dict = Depends(get_current_user)):
 
     return result.data
 
-@router.delete("/{group_id}")
-def delete_group(group_id: str, current_user: dict = Depends(get_current_user)):
-    user_id = current_user["user_id"]
 
-    # only creator can delete
-    group = supabase.table("groups")\
-        .select("*")\
-        .eq("id", group_id)\
-        .eq("created_by", user_id)\
-        .single()\
-        .execute()
-
-    if not group.data:
-        raise HTTPException(status_code=404, detail="Group not found or not yours")
-
-    supabase.table("groups").delete().eq("id", group_id).execute()
-
-    return {"message": "Group deleted"}
 @router.post("/{group_id}/join")
 def join_group(group_id: str, current_user: dict = Depends(get_current_user)):
     user_id = current_user["user_id"]
 
-    # check if already a member
     existing = supabase.table("group_members")\
         .select("*")\
         .eq("group_id", group_id)\
@@ -95,6 +131,55 @@ def join_group(group_id: str, current_user: dict = Depends(get_current_user)):
 
     return result.data[0]
 
+
+@router.delete("/{group_id}")
+def delete_group(group_id: str, current_user: dict = Depends(get_current_user)):
+    user_id = current_user["user_id"]
+
+    group = supabase.table("groups")\
+        .select("*")\
+        .eq("id", group_id)\
+        .eq("created_by", user_id)\
+        .single()\
+        .execute()
+
+    if not group.data:
+        raise HTTPException(status_code=404, detail="Group not found or not yours")
+
+    supabase.table("groups").delete().eq("id", group_id).execute()
+
+    return {"message": "Group deleted"}
+
+@router.delete("/{group_id}/members/{user_id}")
+def remove_member(
+    group_id: str,
+    user_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    requester_id = current_user["user_id"]
+
+    # check requester is admin
+    requester = supabase.table("group_members")\
+        .select("role")\
+        .eq("group_id", group_id)\
+        .eq("user_id", requester_id)\
+        .single()\
+        .execute()
+
+    if not requester.data or requester.data["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can remove members")
+
+    # cant remove yourself
+    if user_id == requester_id:
+        raise HTTPException(status_code=400, detail="You can't remove yourself")
+
+    supabase.table("group_members")\
+        .delete()\
+        .eq("group_id", group_id)\
+        .eq("user_id", user_id)\
+        .execute()
+
+    return {"message": "Member removed"}
 
 @router.post("/{group_id}/settle")
 def settle_up(

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { supabase } from "../lib/supabase";
 import api from "../lib/api";
 import Navbar from "../components/Navbar";
 
@@ -11,28 +12,43 @@ export default function GroupDetail() {
   const [balances, setBalances] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("expenses");
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [myRole, setMyRole] = useState(null);
 
   useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        setCurrentUserId(data.session.user.id);
+      }
+    });
     fetchAll();
   }, [id]);
 
   async function fetchAll() {
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData.session?.user?.id;
+      setCurrentUserId(userId);
+
       const [groupRes, expensesRes, balancesRes] = await Promise.all([
         api.get(`/groups/${id}`),
         api.get(`/expenses/${id}`),
         api.get(`/balances/${id}`),
       ]);
+
       setGroup(groupRes.data);
       setExpenses(expensesRes.data);
       setBalances(balancesRes.data);
+
+      // find current user's role in this group
+      const me = groupRes.data.group_members?.find((m) => m.user_id === userId);
+      if (me) setMyRole(me.role);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
   }
-
   async function deleteExpense(expenseId) {
     if (!window.confirm("Delete this expense?")) return;
     try {
@@ -41,6 +57,14 @@ export default function GroupDetail() {
     } catch (err) {
       console.error(err);
     }
+  }
+
+  async function copyInviteLink() {
+    const inviteToken = group?.invite_token;
+    if (!inviteToken) return;
+    const link = `${window.location.origin}/join/${inviteToken}`;
+    await navigator.clipboard.writeText(link);
+    alert("Invite link copied! Share it with your friends.");
   }
 
   if (loading) {
@@ -52,6 +76,16 @@ export default function GroupDetail() {
         </div>
       </div>
     );
+  }
+
+  async function removeMember(userId) {
+    if (!window.confirm("Remove this member from the group?")) return;
+    try {
+      await api.delete(`/groups/${id}/members/${userId}`);
+      fetchAll();
+    } catch (err) {
+      alert(err.response?.data?.detail || "Could not remove member");
+    }
   }
 
   return (
@@ -79,13 +113,21 @@ export default function GroupDetail() {
               )}
             </div>
           </div>
-          <button
-            onClick={() => navigate(`/group/${id}/add`)}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-all"
-          >
-            <span className="text-lg leading-none">+</span>
-            Add expense
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={copyInviteLink}
+              className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium px-4 py-2 rounded-xl transition-all"
+            >
+              🔗 Invite
+            </button>
+            <button
+              onClick={() => navigate(`/group/${id}/add`)}
+              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-all"
+            >
+              <span className="text-lg leading-none">+</span>
+              Add expense
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -220,7 +262,7 @@ export default function GroupDetail() {
                   <img
                     src={
                       member.profiles?.avatar_url ||
-                      "https://ui-avatars.com/api/?name=User"
+                      `https://ui-avatars.com/api/?name=${member.profiles?.display_name || "U"}`
                     }
                     alt="avatar"
                     className="w-9 h-9 rounded-full"
@@ -234,8 +276,26 @@ export default function GroupDetail() {
                     </p>
                   </div>
                 </div>
+
+                {/* only show remove button if current user is admin and not looking at themselves */}
+                {myRole === "admin" && member.user_id !== currentUserId && (
+                  <button
+                    onClick={() => removeMember(member.user_id)}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all text-xs"
+                  >
+                    Remove
+                  </button>
+                )}
               </div>
             ))}
+
+            {/* invite button inside members tab too */}
+            <button
+              onClick={copyInviteLink}
+              className="w-full py-3 border border-dashed border-gray-300 dark:border-gray-700 rounded-2xl text-sm text-gray-500 dark:text-gray-400 hover:border-indigo-500 hover:text-indigo-500 transition-all"
+            >
+              🔗 Copy invite link to add members
+            </button>
           </div>
         )}
       </div>
