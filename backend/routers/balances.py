@@ -5,6 +5,105 @@ from services.debt_engine import compute_net_balances, simplify_debts
 
 router = APIRouter()
 
+@router.get("/")
+def get_user_balance_summary(current_user: dict = Depends(get_current_user)):
+    user_id = current_user["user_id"]
+
+    # get all groups user belongs to
+    memberships = supabase.table("group_members")\
+        .select("group_id")\
+        .eq("user_id", user_id)\
+        .execute()
+
+    if not memberships.data:
+        return {"total_owed": 0, "total_owing": 0, "net": 0, "groups": []}
+
+    group_ids = [m["group_id"] for m in memberships.data]
+
+    total_owed = 0    # others owe you
+    total_owing = 0   # you owe others
+    group_summaries = []
+
+    for group_id in group_ids:
+        # fetch expenses with splits for this group
+        expenses = supabase.table("expenses")\
+            .select("*, expense_splits(*)")\
+            .eq("group_id", group_id)\
+            .execute()
+
+        if not expenses.data:
+            continue
+
+        # fetch group name
+        group = supabase.table("groups")\
+            .select("id, name")\
+            .eq("id", group_id)\
+            .single()\
+            .execute()
+
+        # fetch members for name resolution
+        members = supabase.table("group_members")\
+            .select("user_id, profiles(display_name)")\
+            .eq("group_id", group_id)\
+            .execute()
+
+        name_map = {}
+        for m in members.data:
+            profile = m.get("profiles")
+            name_map[m["user_id"]] = profile["display_name"] if profile and profile.get("display_name") else "Unknown"
+
+        from services.debt_engine import compute_net_balances, simplify_debts
+        balances = compute_net_balances(expenses.data)
+        transactions = simplify_debts(balances)
+        print("BALANCES:", balances)
+        print("TRANSACTIONS:", transactions)
+        print("CURRENT USER:", user_id)
+
+        # find transactions involving current user
+        group_owed = 0
+        group_owing = 0
+        relevant_txns = []
+
+        for txn in transactions:
+            if txn["to"] == user_id:
+                group_owed += txn["amount"]
+                relevant_txns.append({
+                    "from": name_map.get(txn["from"], txn["from"]),
+                    "to": name_map.get(txn["to"], txn["to"]),
+                    "from_id": txn["from"],
+                    "to_id": txn["to"],
+                    "amount": txn["amount"],
+                    "type": "owed"
+                })
+            elif txn["from"] == user_id:
+                group_owing += txn["amount"]
+                relevant_txns.append({
+                    "from": name_map.get(txn["from"], txn["from"]),
+                    "to": name_map.get(txn["to"], txn["to"]),
+                    "from_id": txn["from"],
+                    "to_id": txn["to"],
+                    "amount": txn["amount"],
+                    "type": "owing"
+                })
+
+        if relevant_txns:
+            group_summaries.append({
+                "group_id": group_id,
+                "group_name": group.data["name"] if group.data else "Unknown",
+                "owed": group_owed,
+                "owing": group_owing,
+                "transactions": relevant_txns
+            })
+
+        total_owed += group_owed
+        total_owing += group_owing
+
+    return {
+        "total_owed": round(total_owed, 2),
+        "total_owing": round(total_owing, 2),
+        "net": round(total_owed - total_owing, 2),
+        "groups": group_summaries
+    }
 
 @router.get("/{group_id}")
 def get_balances(group_id: str, current_user: dict = Depends(get_current_user)):
