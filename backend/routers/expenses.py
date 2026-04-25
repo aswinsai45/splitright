@@ -66,7 +66,25 @@ def get_expenses(group_id: str, current_user: dict = Depends(get_current_user)):
     return result.data
 
 
-@router.delete("/{expense_id}")
+@router.get("/{group_id}/{expense_id}")
+def get_expense(
+    group_id: str,
+    expense_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    result = supabase.table("expenses")\
+        .select("*, expense_splits(*, profiles(display_name, avatar_url)), profiles!expenses_paid_by_fkey(display_name, avatar_url)")\
+        .eq("group_id", group_id)\
+        .eq("id", expense_id)\
+        .single()\
+        .execute()
+
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Expense not found")
+
+    return result.data
+
+
 def delete_expense(expense_id: str, current_user: dict = Depends(get_current_user)):
     user_id = current_user["user_id"]
 
@@ -84,3 +102,45 @@ def delete_expense(expense_id: str, current_user: dict = Depends(get_current_use
     supabase.table("expenses").delete().eq("id", expense_id).execute()
 
     return {"message": "Expense deleted"}
+
+@router.put("/{group_id}/{expense_id}")
+async def update_expense(
+    group_id: str,
+    expense_id: str,
+    expense: ExpenseCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    # Verify user is in group
+    member_check = supabase.table("group_members")\
+        .select("*")\
+        .eq("group_id", group_id)\
+        .eq("user_id", current_user["user_id"])\
+        .execute()
+    
+    if not member_check.data:
+        raise HTTPException(403, "Not a member")
+    
+    # Update expense
+    supabase.table("expenses").update({
+        "paid_by": expense.paid_by,
+        "amount": expense.amount,
+        "description": expense.description,
+        "category": expense.category,
+        "split_type": expense.split_type
+    }).eq("id", expense_id).execute()
+    
+    # Delete old splits
+    supabase.table("expense_splits").delete().eq("expense_id", expense_id).execute()
+    
+    # Insert new splits
+    if expense.split_type == "equal":
+        share = expense.amount / len(expense.participants)
+        splits = [{"expense_id": expense_id, "user_id": uid, "amount": share} 
+                  for uid in expense.participants]
+    else:
+        splits = [{"expense_id": expense_id, "user_id": s.user_id, "amount": s.amount} 
+                  for s in expense.splits]
+    
+    supabase.table("expense_splits").insert(splits).execute()
+    
+    return {"message": "Expense updated"}

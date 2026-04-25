@@ -189,6 +189,16 @@ def settle_up(
 ):
     user_id = current_user["user_id"]
 
+    # Delete any existing settlements between this exact pair in this group
+    # (prevents accumulation from multiple clicks corrupting the balance)
+    supabase.table("settlements")\
+        .delete()\
+        .eq("group_id", group_id)\
+        .eq("paid_by", user_id)\
+        .eq("paid_to", body.paid_to)\
+        .execute()
+
+    # Insert the single authoritative settlement record
     supabase.table("settlements").insert({
         "group_id": group_id,
         "paid_by": user_id,
