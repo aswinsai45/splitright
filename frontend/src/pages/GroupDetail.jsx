@@ -172,8 +172,13 @@ export default function GroupDetail() {
                   key={expense.id}
                   className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-4 flex items-center justify-between"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/40 rounded-xl flex items-center justify-center">
+                  <button
+                    onClick={() =>
+                      navigate(`/group/${id}/expense/${expense.id}`)
+                    }
+                    className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                  >
+                    <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/40 rounded-xl flex items-center justify-center flex-shrink-0">
                       <span className="text-lg">
                         {expense.category === "food"
                           ? "🍕"
@@ -184,19 +189,27 @@ export default function GroupDetail() {
                               : "💸"}
                       </span>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                         {expense.description}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
                         {new Date(expense.created_at).toLocaleDateString()}
                       </p>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3">
+                  </button>
+                  <div className="flex items-center gap-3 flex-shrink-0">
                     <p className="text-sm font-semibold text-gray-900 dark:text-white">
                       ₹{expense.amount}
                     </p>
+                    <button
+                      onClick={() =>
+                        navigate(`/group/${id}/expense/${expense.id}/edit`)
+                      }
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all text-sm"
+                    >
+                      ✏️
+                    </button>
                     <button
                       onClick={() => deleteExpense(expense.id)}
                       className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
