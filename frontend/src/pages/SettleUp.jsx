@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../lib/api";
 import Navbar from "../components/Navbar";
+import { supabase } from "../lib/supabase";
 
 export default function SettleUp() {
   const { id } = useParams();
@@ -9,8 +10,12 @@ export default function SettleUp() {
   const [balances, setBalances] = useState(null);
   const [loading, setLoading] = useState(true);
   const [settling, setSettling] = useState(null);
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) setCurrentUserId(data.session.user.id);
+    });
     fetchBalances();
   }, [id]);
 
@@ -26,13 +31,13 @@ export default function SettleUp() {
   }
 
   async function handleSettle(txn) {
-    setSettling(txn.from);
+    setSettling(txn.from_id);
     try {
       await api.post(`/groups/${id}/settle`, {
-        paid_to: txn.to,
+        paid_to: txn.to_id,
         amount: txn.amount,
       });
-      fetchBalances();
+      await fetchBalances();
     } catch (err) {
       console.error(err);
     } finally {
@@ -91,37 +96,67 @@ export default function SettleUp() {
           <div className="space-y-3">
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               {balances.transactions.length} payment
-              {balances.transactions.length > 1 ? "s" : ""} needed to settle all
-              debts
+              {balances.transactions.length > 1 ? "s" : ""} needed to settle
+              all debts
             </p>
-            {balances.transactions.map((txn, i) => (
-              <div
-                key={i}
-                className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                      {txn.from}
-                    </span>
-                    <span className="text-gray-400 text-sm">pays</span>
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                      {txn.to}
+            {balances.transactions.map((txn, i) => {
+              const iAmDebtor = currentUserId && txn.from_id === currentUserId;
+              const iAmCreditor = currentUserId && txn.to_id === currentUserId;
+
+              return (
+                <div
+                  key={i}
+                  className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span
+                        className={`text-sm font-semibold ${
+                          iAmDebtor
+                            ? "text-red-500"
+                            : "text-gray-900 dark:text-white"
+                        }`}
+                      >
+                        {txn.from}
+                      </span>
+                      <span className="text-gray-400 text-sm">pays</span>
+                      <span
+                        className={`text-sm font-semibold ${
+                          iAmCreditor
+                            ? "text-green-500"
+                            : "text-gray-900 dark:text-white"
+                        }`}
+                      >
+                        {txn.to}
+                      </span>
+                    </div>
+                    <span className="text-lg font-bold text-red-500">
+                      ₹{txn.amount}
                     </span>
                   </div>
-                  <span className="text-lg font-bold text-red-500">
-                    ₹{txn.amount}
-                  </span>
+
+                  {iAmDebtor ? (
+                    <button
+                      onClick={() => handleSettle(txn)}
+                      disabled={settling === txn.from_id}
+                      className="w-full py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-xl transition-all disabled:opacity-50"
+                    >
+                      {settling === txn.from_id
+                        ? "Marking..."
+                        : "Mark as settled ✓"}
+                    </button>
+                  ) : iAmCreditor ? (
+                    <div className="w-full py-2 text-center text-sm text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                      ⏳ Waiting for {txn.from} to mark as settled
+                    </div>
+                  ) : (
+                    <div className="w-full py-2 text-center text-sm text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                      Not involved in this transaction
+                    </div>
+                  )}
                 </div>
-                <button
-                  onClick={() => handleSettle(txn)}
-                  disabled={settling === txn.from}
-                  className="w-full py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-xl transition-all disabled:opacity-50"
-                >
-                  {settling === txn.from ? "Marking..." : "Mark as settled ✓"}
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

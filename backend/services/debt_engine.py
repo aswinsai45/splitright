@@ -1,18 +1,20 @@
 import heapq
 from typing import Dict, List
 
-def compute_net_balances(expenses: List[Dict])-> Dict[str, float]:
+def compute_net_balances(expenses: List[Dict])->Dict[str, float]:
     balances = {}
     for expense in expenses:
         payer = expense["paid_by"]
         for split in expense["expense_splits"]:
+            if split.get("is_settled", False):
+                continue
             uid = split["user_id"]
             amount = split["amount"]
             if uid not in balances:
                 balances[uid] = 0.0
             if payer not in balances:
                 balances[payer] = 0.0
-            if uid!=payer:
+            if uid != payer:
                 balances[uid] -= amount
                 balances[payer] += amount
 

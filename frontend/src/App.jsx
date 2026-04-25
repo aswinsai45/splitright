@@ -6,6 +6,8 @@ import GroupDetail from "./pages/GroupDetail";
 import AddExpense from "./pages/AddExpense";
 import SettleUp from "./pages/SettleUp";
 import JoinGroup from "./pages/JoinGroup";
+import EditExpense from "./pages/EditExpense";
+import ExpenseDetail from "./pages/ExpenseDetail";
 
 function App() {
   return (
@@ -17,6 +19,14 @@ function App() {
       <Route path="/group/:id/add" element={<AddExpense />} />
       <Route path="/group/:id/settle" element={<SettleUp />} />
       <Route path="/join/:token" element={<JoinGroup />} />
+      <Route
+        path="/group/:groupId/expense/:expenseId/edit"
+        element={<EditExpense />}
+      />
+      <Route
+        path="/group/:groupId/expense/:expenseId"
+        element={<ExpenseDetail />}
+      />
     </Routes>
   );
 }
