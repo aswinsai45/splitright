@@ -12,6 +12,7 @@ export default function Dashboard() {
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupDesc, setNewGroupDesc] = useState("");
   const [creating, setCreating] = useState(false);
+  const [summary, setSummary] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -27,9 +28,12 @@ export default function Dashboard() {
 
   async function fetchGroups() {
     try {
-      const { data } = await api.get("/groups/");
-      console.log("GROUPS DATA:", data); //debug
-      setGroups(data);
+      const [groupsRes, summaryRes] = await Promise.all([
+        api.get("/groups/"),
+        api.get("/balances/"),
+      ]);
+      setGroups(groupsRes.data);
+      setSummary(summaryRes.data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -127,6 +131,88 @@ export default function Dashboard() {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Summary cards */}
+        {summary && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                You are owed
+              </p>
+              <p className="text-2xl font-bold text-green-500">
+                ₹{summary.total_owed.toFixed(2)}
+              </p>
+              <p className="text-xs text-gray-400 dark:text-gray-600 mt-1">
+                across all groups
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                You owe
+              </p>
+              <p className="text-2xl font-bold text-red-500">
+                ₹{summary.total_owing.toFixed(2)}
+              </p>
+              <p className="text-xs text-gray-400 dark:text-gray-600 mt-1">
+                across all groups
+              </p>
+            </div>
+
+            <div
+              className={`bg-white dark:bg-gray-900 border rounded-2xl p-5
+      ${
+        summary.net >= 0
+          ? "border-green-200 dark:border-green-800"
+          : "border-red-200 dark:border-red-800"
+      }`}
+            >
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                Net balance
+              </p>
+              <p
+                className={`text-2xl font-bold
+        ${summary.net >= 0 ? "text-green-500" : "text-red-500"}`}
+              >
+                {summary.net >= 0 ? "+" : ""}₹{summary.net.toFixed(2)}
+              </p>
+              <p className="text-xs text-gray-400 dark:text-gray-600 mt-1">
+                {summary.net >= 0 ? "overall you are owed" : "overall you owe"}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Per group breakdown */}
+        {summary?.groups?.length > 0 && (
+          <div className="mb-8 space-y-2">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              Breakdown by group
+            </p>
+            {summary.groups.map((g) => (
+              <div
+                key={g.group_id}
+                className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3 flex items-center justify-between"
+              >
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  {g.group_name}
+                </p>
+                <div className="flex items-center gap-3">
+                  {g.owed > 0 && (
+                    <span className="text-xs text-green-500 font-medium">
+                      +₹{g.owed.toFixed(2)}
+                    </span>
+                  )}
+                  {g.owing > 0 && (
+                    <span className="text-xs text-red-500 font-medium">
+                      -₹{g.owing.toFixed(2)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
