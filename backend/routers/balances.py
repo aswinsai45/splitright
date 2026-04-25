@@ -52,12 +52,8 @@ def get_user_balance_summary(current_user: dict = Depends(get_current_user)):
             profile = m.get("profiles")
             name_map[m["user_id"]] = profile["display_name"] if profile and profile.get("display_name") else "Unknown"
 
-        from services.debt_engine import compute_net_balances, simplify_debts
         balances = compute_net_balances(expenses.data)
         transactions = simplify_debts(balances)
-        print("BALANCES:", balances)
-        print("TRANSACTIONS:", transactions)
-        print("CURRENT USER:", user_id)
 
         # find transactions involving current user
         group_owed = 0
@@ -140,8 +136,29 @@ def get_balances(group_id: str, current_user: dict = Depends(get_current_user)):
         profile = m.get("profiles")
         name_map[m["user_id"]] = profile["display_name"] if profile and profile.get("display_name") else "Unknown"
 
-    # run the algorithm
+    # compute raw net balances from expenses
     balances = compute_net_balances(expenses.data)
+
+    # fetch all settlements for this group and apply them to the net balances
+    # A settlement of ₹X from paid_by → paid_to means:
+    #   paid_by's net goes up by X (they paid, reducing their debt)
+    #   paid_to's net goes down by X (they received, reducing what they're owed)
+    settlements = supabase.table("settlements")\
+        .select("paid_by, paid_to, amount")\
+        .eq("group_id", group_id)\
+        .execute()
+
+    for s in (settlements.data or []):
+        debtor = s["paid_by"]
+        creditor = s["paid_to"]
+        amount = float(s["amount"])
+        if debtor not in balances:
+            balances[debtor] = 0.0
+        if creditor not in balances:
+            balances[creditor] = 0.0
+        balances[debtor] += amount
+        balances[creditor] -= amount
+
     transactions = simplify_debts(balances)
 
     # resolve user IDs to names in transactions
