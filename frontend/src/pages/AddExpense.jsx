@@ -3,12 +3,19 @@ import { useNavigate, useParams } from "react-router-dom";
 import api from "../lib/api";
 import Navbar from "../components/Navbar";
 import NLPInput from "../components/NLPInput";
+import { supabase } from "../lib/supabase";
 
 export default function AddExpense() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState("");
+  const [currentUserName, setCurrentUserName] = useState("");
+  // guestMembers: extra synthetic member rows added by NLP for non-group participants
+  const [guestMembers, setGuestMembers] = useState([]);
+  const [guestInputVisible, setGuestInputVisible] = useState(false);
+  const [guestInputName, setGuestInputName] = useState("");
   const [form, setForm] = useState({
     paid_by: "",
     amount: "",
@@ -20,6 +27,16 @@ export default function AddExpense() {
   });
 
   useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        setCurrentUserId(data.session.user.id);
+        setCurrentUserName(
+          data.session.user.user_metadata?.full_name ||
+            data.session.user.email ||
+            "Me"
+        );
+      }
+    });
     fetchMembers();
   }, [id]);
 
@@ -57,14 +74,69 @@ export default function AddExpense() {
     }
   }
 
-  function handleNLPParsed(parsed) {
+  function addGuest() {
+    const rawName = guestInputName.trim();
+    const name = rawName || `Guest ${guestMembers.length + 1}`;
+    const guestId = `guest_${name.toLowerCase().replace(/\s+/g, "_")}_${Date.now()}`;
+    const newGuest = {
+      user_id: guestId,
+      profiles: { display_name: name, avatar_url: null },
+      isGuest: true,
+    };
+    setGuestMembers((g) => [...g, newGuest]);
     setForm((f) => ({
       ...f,
-      paid_by: parsed.paid_by || f.paid_by,
-      amount: parsed.amount || f.amount,
-      description: parsed.description || f.description,
-      split_type: parsed.split_type || f.split_type,
+      participants: [...f.participants, guestId],
     }));
+    setGuestInputName("");
+    setGuestInputVisible(false);
+  }
+
+  function removeGuest(guestId) {
+    setGuestMembers((g) => g.filter((m) => m.user_id !== guestId));
+    setForm((f) => ({
+      ...f,
+      participants: f.participants.filter((id) => id !== guestId),
+      custom_splits: Object.fromEntries(
+        Object.entries(f.custom_splits).filter(([k]) => k !== guestId)
+      ),
+    }));
+  }
+
+  function handleNLPParsed(parsed) {
+    // Merge guest participants into the display member list
+    if (parsed.resolvedParticipants && parsed.resolvedParticipants.length > 0) {
+      const newGuests = parsed.resolvedParticipants
+        .filter((p) => p.isGuest)
+        .filter((p) => !guestMembers.find((g) => g.user_id === p.id))
+        .map((p) => ({
+          user_id: p.id,
+          profiles: { display_name: p.display_name, avatar_url: null },
+          isGuest: true,
+        }));
+      if (newGuests.length > 0) setGuestMembers((g) => [...g, ...newGuests]);
+
+      const participantIds = parsed.resolvedParticipants.map((p) => p.id);
+      setForm((f) => ({
+        ...f,
+        paid_by: parsed.paid_by || f.paid_by,
+        amount: parsed.amount || f.amount,
+        description: parsed.description || f.description,
+        category: parsed.category || f.category,
+        split_type: parsed.split_type || f.split_type,
+        participants: participantIds,
+        custom_splits: {},
+      }));
+    } else {
+      setForm((f) => ({
+        ...f,
+        paid_by: parsed.paid_by || f.paid_by,
+        amount: parsed.amount || f.amount,
+        description: parsed.description || f.description,
+        category: parsed.category || f.category,
+        split_type: parsed.split_type || f.split_type,
+      }));
+    }
   }
 
   function toggleParticipant(userId) {
@@ -163,7 +235,12 @@ export default function AddExpense() {
 
         <div className="space-y-5">
           {/* NLP Input */}
-          <NLPInput groupMembers={members} onParsed={handleNLPParsed} />
+          <NLPInput
+            groupMembers={members}
+            onParsed={handleNLPParsed}
+            currentUserId={currentUserId}
+            currentUserName={currentUserName}
+          />
 
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-gray-200 dark:bg-gray-800" />
@@ -272,34 +349,90 @@ export default function AddExpense() {
           <div>
             <label className={labelClass}>Split between</label>
             <div className="flex flex-wrap gap-2 mb-3">
-              {members.map((m) => (
-                <button
-                  key={m.user_id}
-                  onClick={() => toggleParticipant(m.user_id)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium border transition-all
-          ${
-            form.participants.includes(m.user_id)
-              ? "bg-indigo-600 border-indigo-600 text-white"
-              : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400"
-          }`}
-                >
-                  <img
-                    src={
-                      m.profiles?.avatar_url ||
-                      `https://ui-avatars.com/api/?name=${m.profiles?.display_name || "U"}`
-                    }
-                    className="w-4 h-4 rounded-full"
-                  />
-                  {m.profiles?.display_name || "Unknown"}
-                </button>
+              {[...members, ...guestMembers].map((m) => (
+                <div key={m.user_id} className="relative group/chip">
+                  <button
+                    onClick={() => toggleParticipant(m.user_id)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium border transition-all ${
+                      form.participants.includes(m.user_id)
+                        ? "bg-indigo-600 border-indigo-600 text-white"
+                        : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400"
+                    }`}
+                  >
+                    <img
+                      src={
+                        m.profiles?.avatar_url ||
+                        `https://ui-avatars.com/api/?name=${m.profiles?.display_name || "U"}`
+                      }
+                      className="w-4 h-4 rounded-full"
+                    />
+                    {m.profiles?.display_name || "Unknown"}
+                    {m.isGuest && (
+                      <span className="ml-1 text-xs opacity-70">(guest)</span>
+                    )}
+                  </button>
+                  {/* Remove button only for guests */}
+                  {m.isGuest && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeGuest(m.user_id);
+                      }}
+                      className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white text-xs leading-none flex items-center justify-center opacity-0 group-hover/chip:opacity-100 transition-opacity"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
               ))}
+
+              {/* Add guest button / inline input */}
+              {guestInputVisible ? (
+                <div className="flex items-center gap-1">
+                  <input
+                    autoFocus
+                    type="text"
+                    value={guestInputName}
+                    onChange={(e) => setGuestInputName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") addGuest();
+                      if (e.key === "Escape") {
+                        setGuestInputVisible(false);
+                        setGuestInputName("");
+                      }
+                    }}
+                    placeholder="Guest name"
+                    className="w-28 px-2 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <button
+                    onClick={addGuest}
+                    className="px-2 py-1 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all"
+                  >
+                    Add
+                  </button>
+                  <button
+                    onClick={() => { setGuestInputVisible(false); setGuestInputName(""); }}
+                    className="px-2 py-1 text-xs text-gray-400 hover:text-gray-600 transition-all"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setGuestInputVisible(true)}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-sm font-medium border border-dashed border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:border-indigo-400 hover:text-indigo-500 transition-all"
+                >
+                  ＋ Add guest
+                </button>
+              )}
             </div>
 
             {/* Custom split inputs */}
             {form.participants.length > 0 && form.split_type !== "equal" && (
               <div className="space-y-2 mt-3">
                 {form.participants.map((uid) => {
-                  const member = members.find((m) => m.user_id === uid);
+                  const allMembers = [...members, ...guestMembers];
+                  const member = allMembers.find((m) => m.user_id === uid);
                   return (
                     <div key={uid} className="flex items-center gap-3">
                       <img
