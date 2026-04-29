@@ -26,6 +26,9 @@ function App() {
       <Route
         path="/group/:groupId/expense/:expenseId"
         element={<ExpenseDetail />}
+
+
+        
       />
     </Routes>
   );

@@ -1,7 +1,51 @@
 import { useState } from "react";
 import api from "../lib/api";
 
-export default function NLPInput({ groupMembers, onParsed }) {
+/**
+ * Resolve participant names returned by the LLM into structured participant objects.
+ *
+ * Rules:
+ *  - "I" / "me" → current logged-in user
+ *  - A name that fuzzy-matches a group member's display_name → that member
+ *  - An unrecognised name → { id: "guest_<name>", display_name: <name>, isGuest: true }
+ *  - If only participant_count was given (no names), generate guest slots for the
+ *    missing people (current user fills slot 1, rest are guest_1, guest_2…)
+ */
+function resolveParticipants({ participantNames, participantCount, currentUserId, currentUserName, groupMembers }) {
+  const resolved = [];
+
+  function matchMember(name) {
+    if (!name) return null;
+    const lower = name.toLowerCase().trim();
+    if (lower === "i" || lower === "me") {
+      return { id: currentUserId, display_name: currentUserName, isGuest: false };
+    }
+    const found = groupMembers.find(
+      (m) => m.profiles?.display_name?.toLowerCase() === lower
+    );
+    if (found) return { id: found.user_id, display_name: found.profiles.display_name, isGuest: false };
+    // Unknown name → named guest
+    return { id: `guest_${lower.replace(/\s+/g, "_")}`, display_name: name, isGuest: true };
+  }
+
+  if (participantNames && participantNames.length > 0) {
+    for (const name of participantNames) {
+      const r = matchMember(name);
+      if (r && !resolved.find((x) => x.id === r.id)) resolved.push(r);
+    }
+  } else if (participantCount && participantCount > 0) {
+    // Slot 0: current user
+    resolved.push({ id: currentUserId, display_name: currentUserName, isGuest: false });
+    // Remaining slots: guest_1, guest_2, ...
+    for (let i = 1; i < participantCount; i++) {
+      resolved.push({ id: `guest_${i}`, display_name: `Guest ${i}`, isGuest: true });
+    }
+  }
+
+  return resolved;
+}
+
+export default function NLPInput({ groupMembers, onParsed, currentUserId, currentUserName }) {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -14,19 +58,36 @@ export default function NLPInput({ groupMembers, onParsed }) {
     try {
       const { data } = await api.post("/nlp/parse-expense", { text });
 
-      const payer = groupMembers.find(
-        (m) =>
-          m.profiles?.display_name?.toLowerCase() ===
-          data.payer_name.toLowerCase(),
-      );
+      // Resolve payer
+      let payerId = "";
+      if (data.payer_name) {
+        const pn = data.payer_name.toLowerCase().trim();
+        if (pn === "i" || pn === "me") {
+          payerId = currentUserId || "";
+        } else {
+          const found = groupMembers.find(
+            (m) => m.profiles?.display_name?.toLowerCase() === pn
+          );
+          payerId = found?.user_id || "";
+        }
+      }
+
+      // Resolve participants
+      const resolved = resolveParticipants({
+        participantNames: data.participant_names,
+        participantCount: data.participant_count,
+        currentUserId,
+        currentUserName,
+        groupMembers,
+      });
 
       onParsed({
-        paid_by: payer?.user_id || "",
+        paid_by: payerId,
         amount: data.amount,
         description: data.description,
-        split_type: data.split_type,
-        participant_count: data.participant_count,
-        payer_name: data.payer_name,
+        category: data.category || "other",
+        split_type: data.split_type || "equal",
+        resolvedParticipants: resolved, // array of { id, display_name, isGuest }
       });
 
       setText("");
@@ -46,7 +107,7 @@ export default function NLPInput({ groupMembers, onParsed }) {
         </p>
       </div>
       <p className="text-xs text-indigo-600 dark:text-indigo-400">
-        Try: "Rahul paid 800 for dinner split 4 ways"
+        Try: "I paid 400 for dinner in 3 ways" or "Rahul paid 800 for Uber with Sam and Priya"
       </p>
       <div className="flex gap-2">
         <input
