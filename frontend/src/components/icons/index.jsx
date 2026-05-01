@@ -11,6 +11,11 @@ import {
   Edit2,
 } from "lucide-react";
 
+import {
+  FaGithub,
+  FaLinkedin,
+} from "react-icons/fa";
+
 export function IconTrash(props) {
   const { className = "w-4 h-4", ...rest } = props;
   return <Trash2 className={className} {...rest} />;
@@ -59,4 +64,14 @@ export function IconRupeeBadge(props) {
 export function IconHandCoins(props) {
   const { className = "w-7 h-7", ...rest } = props;
   return <HandCoins className={className} {...rest} />;
+}
+
+export function IconGithub(props) {
+  const { className = "w-5 h-5", ...rest } = props;
+  return <FaGithub className={className} {...rest} />;
+}
+
+export function IconLinkedin(props) {
+  const { className = "w-5 h-5", ...rest } = props;
+  return <FaLinkedin className={className} {...rest} />;
 }

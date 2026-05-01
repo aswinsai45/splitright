@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import api from "../lib/api";
 import { IconUsers, IconHandCoins } from "../components/icons";
+import Footer from "../components/Footer";
 
 export default function JoinGroup() {
   const { token } = useParams();
@@ -116,8 +117,9 @@ export default function JoinGroup() {
   // Guest claim prompt — shown after joining if unassigned guests exist
   if (showGuestPrompt) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center px-4">
-        <div className="w-full max-w-md">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col items-center px-4 transition-colors duration-200">
+        <div className="flex-1 flex items-center justify-center w-full">
+          <div className="w-full max-w-md">
           <div className="text-center mb-6">
             <div className="inline-flex items-center justify-center w-14 h-14 bg-amber-100 dark:bg-amber-900/30 rounded-2xl mb-4 text-amber-700 dark:text-amber-200">
               <IconHandCoins className="w-7 h-7" />
@@ -161,65 +163,70 @@ export default function JoinGroup() {
             </button>
           </div>
         </div>
+        </div>
+        <Footer />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <IconHandCoins className="w-14 h-14 mx-auto mb-4 text-indigo-600" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            SplitRight
-          </h1>
-        </div>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col items-center px-4 transition-colors duration-200">
+      <div className="flex-1 flex items-center justify-center w-full">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <IconHandCoins className="w-14 h-14 mx-auto mb-4 text-indigo-600" />
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              SplitRight
+            </h1>
+          </div>
 
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-8">
-          {error ? (
-            <div className="text-center">
-              <p className="text-gray-900 dark:text-white font-semibold mt-4">
-                Invalid invite
-              </p>
-              <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-                {error}
-              </p>
-            </div>
-          ) : (
-            <>
-              <p className="text-gray-500 dark:text-gray-400 text-sm mb-1">
-                You've been invited to join
-              </p>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
-                {group?.name}
-              </h2>
-              {group?.description && (
-                <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
-                  {group.description}
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-8">
+            {error ? (
+              <div className="text-center">
+                <p className="text-gray-900 dark:text-white font-semibold mt-4">
+                  Invalid invite
                 </p>
-              )}
-
-              {!session && (
-                <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 mb-4">
-                  You need to sign in first. We'll bring you back here after.
+                <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
+                  {error}
                 </p>
-              )}
+              </div>
+            ) : (
+              <>
+                <p className="text-gray-500 dark:text-gray-400 text-sm mb-1">
+                  You've been invited to join
+                </p>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
+                  {group?.name}
+                </h2>
+                {group?.description && (
+                  <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
+                    {group.description}
+                  </p>
+                )}
 
-              <button
-                onClick={handleJoin}
-                disabled={joining}
-                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl transition-all disabled:opacity-50"
-              >
-                {joining
-                  ? "Joining..."
-                  : session
-                    ? `Join ${group?.name}`
-                    : "Sign in to join"}
-              </button>
-            </>
-          )}
+                {!session && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 mb-4">
+                    You need to sign in first. We'll bring you back here after.
+                  </p>
+                )}
+
+                <button
+                  onClick={handleJoin}
+                  disabled={joining}
+                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl transition-all disabled:opacity-50"
+                >
+                  {joining
+                    ? "Joining..."
+                    : session
+                      ? `Join ${group?.name}`
+                      : "Sign in to join"}
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

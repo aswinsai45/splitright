@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import api from "../lib/api";
 import Navbar from "../components/Navbar";
 import { IconRupeeBadge, IconUsers, IconTrash } from "../components/icons";
+import Footer from "../components/Footer";
 
 export default function Dashboard() {
   const [groups, setGroups] = useState([]);
@@ -70,10 +71,10 @@ export default function Dashboard() {
     }
   }
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors duration-200">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors duration-200 flex flex-col">
       <Navbar />
 
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="flex-1 max-w-4xl mx-auto px-4 py-8 w-full">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -333,6 +334,7 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+      <Footer />
     </div>
   );
 }

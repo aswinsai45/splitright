@@ -11,6 +11,7 @@ import {
   IconTrash,
   IconUsers,
 } from "../components/icons";
+import Footer from "../components/Footer";
 
 export default function GroupDetail() {
   const { id } = useParams();
@@ -158,10 +159,10 @@ export default function GroupDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors duration-200">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors duration-200 flex flex-col">
       <Navbar />
 
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="flex-1 max-w-4xl mx-auto px-4 py-8 w-full">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -532,6 +533,7 @@ export default function GroupDetail() {
           </div>
         )}
       </div>
+      <Footer />
     </div>
   );
 }

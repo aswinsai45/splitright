@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../lib/api";
 import Navbar from "../components/Navbar";
+import Footer from "../components/Footer";
 
 const SPLIT_LABEL = {
   equal: "Equal split",
@@ -81,10 +82,10 @@ export default function ExpenseDetail() {
     null;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors duration-200">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors duration-200 flex flex-col">
       <Navbar />
 
-      <div className="max-w-lg mx-auto px-4 py-8">
+      <div className="flex-1 max-w-lg mx-auto px-4 py-8 w-full">
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">
           <button
@@ -263,6 +264,7 @@ export default function ExpenseDetail() {
           </button>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }
