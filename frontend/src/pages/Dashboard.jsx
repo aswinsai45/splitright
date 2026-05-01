@@ -143,7 +143,7 @@ export default function Dashboard() {
                 You are owed
               </p>
               <p className="text-2xl font-bold text-green-500">
-                ₹{summary.total_owed.toFixed(2)}
+                ₹{Number(summary.total_owed || 0).toFixed(2)}
               </p>
               <p className="text-xs text-gray-400 dark:text-gray-600 mt-1">
                 across all groups
@@ -155,7 +155,7 @@ export default function Dashboard() {
                 You owe
               </p>
               <p className="text-2xl font-bold text-red-500">
-                ₹{summary.total_owing.toFixed(2)}
+                ₹{Number(summary.total_owing || 0).toFixed(2)}
               </p>
               <p className="text-xs text-gray-400 dark:text-gray-600 mt-1">
                 across all groups
@@ -177,7 +177,7 @@ export default function Dashboard() {
                 className={`text-2xl font-bold
         ${summary.net >= 0 ? "text-green-500" : "text-red-500"}`}
               >
-                {summary.net >= 0 ? "+" : ""}₹{summary.net.toFixed(2)}
+                {Number(summary.net || 0) >= 0 ? "+" : ""}₹{Number(summary.net || 0).toFixed(2)}
               </p>
               <p className="text-xs text-gray-400 dark:text-gray-600 mt-1">
                 {summary.net >= 0 ? "overall you are owed" : "overall you owe"}
