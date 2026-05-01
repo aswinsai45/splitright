@@ -311,7 +311,7 @@ export default function GroupDetail() {
                           const debtor = displayNameForSplit(s);
                           const payer = displayNameForPayer(expense);
                           const amount = parseFloat(s.amount || 0)
-                            .Number(value || 0)
+                            .toFixed(2)
                             .toFixed(2);
                           const owes =
                             (s.user_id && s.user_id === expense.paid_by) ||

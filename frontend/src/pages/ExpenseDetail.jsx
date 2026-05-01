@@ -122,7 +122,7 @@ export default function ExpenseDetail() {
               <p className="text-xl font-bold text-gray-900 dark:text-white">
                 ₹
                 {parseFloat(expense.amount)
-                  .Number(value || 0)
+                  .toFixed(2)
                   .toFixed(2)}
               </p>
             </div>
@@ -174,7 +174,7 @@ export default function ExpenseDetail() {
                           parseFloat(expense.amount)) *
                         100
                       )
-                        .Number(value || 0)
+                        .toFixed(2)
                         .toFixed(1)
                     : "0.0";
 
@@ -216,7 +216,7 @@ export default function ExpenseDetail() {
                       <p className="text-sm font-semibold text-gray-900 dark:text-white">
                         ₹
                         {parseFloat(split.amount)
-                          .Number(value || 0)
+                          .toFixed(2)
                           .toFixed(2)}
                       </p>
                       <p className="text-xs text-gray-400">{pct}%</p>

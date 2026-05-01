@@ -64,7 +64,7 @@ export default function EditExpense() {
         custom_splits = Object.fromEntries(
           (data.expense_splits || []).map((s) => [
             s.user_id || s.guest_id,
-            ((s.amount / total) * 100).Number(value || 0).toFixed(2),
+            ((s.amount / total) * 100).toFixed(2),
           ]),
         );
       }
@@ -532,7 +532,7 @@ export default function EditExpense() {
                       return isSplitValid()
                         ? "✓ Splits add up correctly"
                         : `₹${Math.abs(diff)
-                            .Number(value || 0)
+                            .toFixed(2)
                             .toFixed(2)} ${
                             diff > 0 ? "remaining" : "over total"
                           }`;
@@ -569,7 +569,7 @@ export default function EditExpense() {
                 <p className="text-xs text-gray-400 mt-2">
                   ₹
                   {(parseFloat(form.amount) / form.participants.length)
-                    .Number(value || 0)
+                    .toFixed(2)
                     .toFixed(2)}{" "}
                   each
                 </p>

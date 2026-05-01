@@ -143,7 +143,7 @@ export default function Dashboard() {
                 You are owed
               </p>
               <p className="text-2xl font-bold text-green-500">
-                ₹{summary.total_owed.Number(value || 0).toFixed(2)}
+                ₹{summary.total_owed.toFixed(2)}
               </p>
               <p className="text-xs text-gray-400 dark:text-gray-600 mt-1">
                 across all groups

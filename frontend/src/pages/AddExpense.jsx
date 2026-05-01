@@ -595,7 +595,7 @@ export default function AddExpense() {
                       return isSplitValid()
                         ? "✓ Splits add up correctly"
                         : `₹${Math.abs(diff)
-                            .Number(value || 0)
+                            .toFixed(2)
                             .toFixed(
                               2,
                             )} ${diff > 0 ? "remaining" : "over total"}`;
