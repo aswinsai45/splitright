@@ -1,6 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 import Login from "./pages/Login";
-import AuthCallback from "./pages/AuthCallback";
+import AuthCallback from "./pages/AuthCallBack";
 import Dashboard from "./pages/Dashboard";
 import GroupDetail from "./pages/GroupDetail";
 import AddExpense from "./pages/AddExpense";
@@ -26,9 +26,6 @@ function App() {
       <Route
         path="/group/:groupId/expense/:expenseId"
         element={<ExpenseDetail />}
-
-
-        
       />
     </Routes>
   );
