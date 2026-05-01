@@ -11,7 +11,12 @@ app=FastAPI(title="SplitRight API", description="API for SplitRight application"
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[
+        "http://localhost:3000",      
+        "http://localhost:5173",      
+        "https://*.netlify.app",     
+        "*"                           
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
