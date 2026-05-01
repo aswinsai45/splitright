@@ -122,7 +122,6 @@ export default function ExpenseDetail() {
               <p className="text-xl font-bold text-gray-900 dark:text-white">
                 ₹
                 {parseFloat(expense.amount)
-                  .toFixed(2)
                   .toFixed(2)}
               </p>
             </div>
@@ -175,7 +174,6 @@ export default function ExpenseDetail() {
                         100
                       )
                         .toFixed(2)
-                        .toFixed(1)
                     : "0.0";
 
                 const splitName =
@@ -216,7 +214,6 @@ export default function ExpenseDetail() {
                       <p className="text-sm font-semibold text-gray-900 dark:text-white">
                         ₹
                         {parseFloat(split.amount)
-                          .toFixed(2)
                           .toFixed(2)}
                       </p>
                       <p className="text-xs text-gray-400">{pct}%</p>

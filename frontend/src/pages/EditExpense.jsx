@@ -532,7 +532,6 @@ export default function EditExpense() {
                       return isSplitValid()
                         ? "✓ Splits add up correctly"
                         : `₹${Math.abs(diff)
-                            .toFixed(2)
                             .toFixed(2)} ${
                             diff > 0 ? "remaining" : "over total"
                           }`;
@@ -569,7 +568,6 @@ export default function EditExpense() {
                 <p className="text-xs text-gray-400 mt-2">
                   ₹
                   {(parseFloat(form.amount) / form.participants.length)
-                    .toFixed(2)
                     .toFixed(2)}{" "}
                   each
                 </p>
