@@ -64,7 +64,7 @@ export default function EditExpense() {
         custom_splits = Object.fromEntries(
           (data.expense_splits || []).map((s) => [
             s.user_id || s.guest_id,
-            ((s.amount / total) * 100).toFixed(2),
+            ((s.amount / total) * 100).Number(value || 0).toFixed(2),
           ]),
         );
       }
@@ -74,7 +74,9 @@ export default function EditExpense() {
         .filter(Boolean);
 
       setForm({
-        paid_by: data.paid_by_guest?.id ? `guest_uuid:${data.paid_by_guest.id}` : data.paid_by,
+        paid_by: data.paid_by_guest?.id
+          ? `guest_uuid:${data.paid_by_guest.id}`
+          : data.paid_by,
         amount: data.amount.toString(),
         description: data.description,
         category: data.category,
@@ -161,11 +163,15 @@ export default function EditExpense() {
         });
         guestIdMap[pid] = newGuest.id;
         setGuestMembers((prev) =>
-          prev.map((g) => (g.user_id === pid ? { ...g, user_id: newGuest.id } : g)),
+          prev.map((g) =>
+            g.user_id === pid ? { ...g, user_id: newGuest.id } : g,
+          ),
         );
       }
 
-      const resolvedGuestUUIDs = guestParticipantIds.map((pid) => guestIdMap[pid] || pid);
+      const resolvedGuestUUIDs = guestParticipantIds.map(
+        (pid) => guestIdMap[pid] || pid,
+      );
 
       const payload = {
         paid_by: form.paid_by,
@@ -525,7 +531,9 @@ export default function EditExpense() {
                       const diff = parseFloat(form.amount) - total;
                       return isSplitValid()
                         ? "✓ Splits add up correctly"
-                        : `₹${Math.abs(diff).toFixed(2)} ${
+                        : `₹${Math.abs(diff)
+                            .Number(value || 0)
+                            .toFixed(2)} ${
                             diff > 0 ? "remaining" : "over total"
                           }`;
                     })()}
@@ -560,9 +568,9 @@ export default function EditExpense() {
               form.amount && (
                 <p className="text-xs text-gray-400 mt-2">
                   ₹
-                  {(
-                    parseFloat(form.amount) / form.participants.length
-                  ).toFixed(2)}{" "}
+                  {(parseFloat(form.amount) / form.participants.length)
+                    .Number(value || 0)
+                    .toFixed(2)}{" "}
                   each
                 </p>
               )}
@@ -572,10 +580,7 @@ export default function EditExpense() {
           <button
             onClick={handleSubmit}
             disabled={
-              loading ||
-              !form.paid_by ||
-              !form.amount ||
-              !isSplitValid()
+              loading || !form.paid_by || !form.amount || !isSplitValid()
             }
             className="w-full py-3 bg-indigo-600 text-white rounded-xl disabled:opacity-50"
           >

@@ -120,7 +120,10 @@ export default function ExpenseDetail() {
             <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
               <p className="text-xs text-gray-400 mb-1">Total amount</p>
               <p className="text-xl font-bold text-gray-900 dark:text-white">
-                ₹{parseFloat(expense.amount).toFixed(2)}
+                ₹
+                {parseFloat(expense.amount)
+                  .Number(value || 0)
+                  .toFixed(2)}
               </p>
             </div>
             <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
@@ -170,7 +173,9 @@ export default function ExpenseDetail() {
                         (parseFloat(split.amount) /
                           parseFloat(expense.amount)) *
                         100
-                      ).toFixed(1)
+                      )
+                        .Number(value || 0)
+                        .toFixed(1)
                     : "0.0";
 
                 const splitName =
@@ -209,7 +214,10 @@ export default function ExpenseDetail() {
                     </div>
                     <div className="text-right flex-shrink-0">
                       <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                        ₹{parseFloat(split.amount).toFixed(2)}
+                        ₹
+                        {parseFloat(split.amount)
+                          .Number(value || 0)
+                          .toFixed(2)}
                       </p>
                       <p className="text-xs text-gray-400">{pct}%</p>
                     </div>

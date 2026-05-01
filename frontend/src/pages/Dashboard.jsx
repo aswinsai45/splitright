@@ -143,7 +143,7 @@ export default function Dashboard() {
                 You are owed
               </p>
               <p className="text-2xl font-bold text-green-500">
-                ₹{summary.total_owed.toFixed(2)}
+                ₹{summary.total_owed.Number(value || 0).toFixed(2)}
               </p>
               <p className="text-xs text-gray-400 dark:text-gray-600 mt-1">
                 across all groups
@@ -244,10 +244,18 @@ export default function Dashboard() {
 
                 // 1) Check explicit membership list on the group
                 if (group && Array.isArray(group.group_members)) {
-                  const me = group.group_members.find((m) => m.user_id === userId || m.id === userId);
+                  const me = group.group_members.find(
+                    (m) => m.user_id === userId || m.id === userId,
+                  );
                   if (me && me.role) {
                     const r = String(me.role).toLowerCase();
-                    if (r === "admin" || r === "owner" || r === "creator" || r === "administrator") return true;
+                    if (
+                      r === "admin" ||
+                      r === "owner" ||
+                      r === "creator" ||
+                      r === "administrator"
+                    )
+                      return true;
                   }
                 }
 
@@ -260,14 +268,23 @@ export default function Dashboard() {
                 // 3) Some group objects include flags or owner fields
                 if (group) {
                   if (group.owner_id && group.owner_id === userId) return true;
-                  if (group.created_by && group.created_by === userId) return true;
+                  if (group.created_by && group.created_by === userId)
+                    return true;
                   if (group.is_admin || group.isOwner) return true;
-                  if (group.my_role && String(group.my_role).toLowerCase() === "admin") return true;
+                  if (
+                    group.my_role &&
+                    String(group.my_role).toLowerCase() === "admin"
+                  )
+                    return true;
                 }
 
                 // 4) Some APIs include an `admins` array
                 if (group && Array.isArray(group.admins)) {
-                  if (group.admins.includes(userId) || group.admins.includes(String(userId))) return true;
+                  if (
+                    group.admins.includes(userId) ||
+                    group.admins.includes(String(userId))
+                  )
+                    return true;
                 }
 
                 return false;

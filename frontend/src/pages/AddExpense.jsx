@@ -35,7 +35,7 @@ export default function AddExpense() {
         setCurrentUserName(
           data.session.user.user_metadata?.full_name ||
             data.session.user.email ||
-            "Me"
+            "Me",
         );
       }
     });
@@ -105,7 +105,7 @@ export default function AddExpense() {
       ...f,
       participants: f.participants.filter((id) => id !== guestId),
       custom_splits: Object.fromEntries(
-        Object.entries(f.custom_splits).filter(([k]) => k !== guestId)
+        Object.entries(f.custom_splits).filter(([k]) => k !== guestId),
       ),
     }));
   }
@@ -171,7 +171,7 @@ export default function AddExpense() {
           groupGuests.some((g) => g.id === pid),
       );
       const realParticipantIds = form.participants.filter(
-        (pid) => !guestParticipantIds.includes(pid)
+        (pid) => !guestParticipantIds.includes(pid),
       );
 
       // 2. Create guest records in DB for any guests that don't yet have a real UUID
@@ -191,17 +191,21 @@ export default function AddExpense() {
           // update guestMembers state so chips reflect real UUID
           setGuestMembers((prev) =>
             prev.map((g) =>
-              g.user_id === pid ? { ...g, user_id: newGuest.id } : g
-            )
+              g.user_id === pid ? { ...g, user_id: newGuest.id } : g,
+            ),
           );
         }
       }
 
-      const resolvedGuestUUIDs = guestParticipantIds.map((pid) => guestIdMap[pid]);
+      const resolvedGuestUUIDs = guestParticipantIds.map(
+        (pid) => guestIdMap[pid],
+      );
 
       // 2b. Resolve paid_by if the user picked a locally-created guest chip as payer
       let resolvedPaidBy = form.paid_by;
-      const localGuestPayer = guestMembers.find((g) => g.user_id === form.paid_by);
+      const localGuestPayer = guestMembers.find(
+        (g) => g.user_id === form.paid_by,
+      );
       if (localGuestPayer) {
         // payer selected as local guest; ensure it exists in DB and send as guest_uuid:<uuid>
         if (uuidRegex.test(localGuestPayer.user_id)) {
@@ -215,8 +219,8 @@ export default function AddExpense() {
             prev.map((g) =>
               g.user_id === localGuestPayer.user_id
                 ? { ...g, user_id: newGuest.id }
-                : g
-            )
+                : g,
+            ),
           );
           resolvedPaidBy = `guest_uuid:${newGuest.id}`;
         }
@@ -363,7 +367,9 @@ export default function AddExpense() {
               {guestMembers.length > 0 && (
                 <optgroup label="New guests">
                   {guestMembers
-                    .filter((g) => !groupGuests.some((gg) => gg.id === g.user_id))
+                    .filter(
+                      (g) => !groupGuests.some((gg) => gg.id === g.user_id),
+                    )
                     .map((g) => (
                       <option key={g.user_id} value={g.user_id}>
                         {g.profiles?.display_name || "Guest"} (new)
@@ -502,7 +508,10 @@ export default function AddExpense() {
                     Add
                   </button>
                   <button
-                    onClick={() => { setGuestInputVisible(false); setGuestInputName(""); }}
+                    onClick={() => {
+                      setGuestInputVisible(false);
+                      setGuestInputName("");
+                    }}
                     className="px-2 py-1 text-xs text-gray-400 hover:text-gray-600 transition-all"
                   >
                     ✕
@@ -585,7 +594,11 @@ export default function AddExpense() {
                       const diff = parseFloat(form.amount) - total;
                       return isSplitValid()
                         ? "✓ Splits add up correctly"
-                        : `₹${Math.abs(diff).toFixed(2)} ${diff > 0 ? "remaining" : "over total"}`;
+                        : `₹${Math.abs(diff)
+                            .Number(value || 0)
+                            .toFixed(
+                              2,
+                            )} ${diff > 0 ? "remaining" : "over total"}`;
                     })()}
                   </div>
                 )}
