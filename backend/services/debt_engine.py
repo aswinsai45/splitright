@@ -1,24 +1,57 @@
 import heapq
-from typing import Dict, List
+from typing import Dict, List, Optional
 
-def compute_net_balances(expenses: List[Dict])->Dict[str, float]:
+
+def compute_net_balances(
+    expenses: List[Dict],
+    guest_assignments: Optional[Dict[str, str]] = None,
+) -> Dict[str, float]:
+    """
+    Compute net balances from a list of expenses with their expense_splits.
+
+    guest_assignments: mapping of group_guest.id -> real user_id (profiles.id)
+    Splits belonging to unassigned guests are counted under a synthetic key
+    "guest:<uuid>" so guests can participate in balances before assignment.
+    """
+    if guest_assignments is None:
+        guest_assignments = {}
+
+    def guest_key(guest_id: str) -> str:
+        return f"guest:{guest_id}"
+
     balances = {}
     for expense in expenses:
-        payer = expense["paid_by"]
+        paid_by_guest_id = expense.get("paid_by_guest_id")
+        if paid_by_guest_id:
+            payer = guest_assignments.get(paid_by_guest_id) or guest_key(paid_by_guest_id)
+        else:
+            payer = expense.get("paid_by")
+
+        if payer is None:
+            continue
+
         for split in expense["expense_splits"]:
             if split.get("is_settled", False):
                 continue
-            uid = split["user_id"]
-            amount = split["amount"]
-            if uid not in balances:
-                balances[uid] = 0.0
-            if payer not in balances:
-                balances[payer] = 0.0
+
+            # Determine the effective debtor
+            guest_id = split.get("guest_id")
+            if guest_id:
+                uid = guest_assignments.get(guest_id) or guest_key(guest_id)
+            else:
+                uid = split.get("user_id")
+                if uid is None:
+                    continue  # malformed split
+
+            amount = float(split["amount"])
+            balances.setdefault(uid, 0.0)
+            balances.setdefault(payer, 0.0)
             if uid != payer:
                 balances[uid] -= amount
                 balances[payer] += amount
 
     return balances
+
 
 def simplify_debts(balances: Dict[str, float]) -> List[Dict]:
     creditors = []

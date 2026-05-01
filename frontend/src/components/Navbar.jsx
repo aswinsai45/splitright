@@ -1,6 +1,7 @@
-import { useTheme } from "../context/ThemeContext";
+import { useTheme } from "../context/useTheme";
 import { supabase } from "../lib/supabase";
 import { useNavigate } from "react-router-dom";
+import { IconMoon, IconSun, IconHandCoins } from "./icons";
 
 export default function Navbar() {
   const { dark, toggleTheme } = useTheme();
@@ -18,10 +19,10 @@ export default function Navbar() {
           className="flex items-center gap-2 cursor-pointer"
           onClick={() => navigate("/dashboard")}
         >
-          <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center">
-            <span className="text-sm">⚡</span>
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900">
+            <IconHandCoins className="w-5 h-5" />
           </div>
-          <span className="font-semibold text-gray-900 dark:text-white text-sm">
+          <span className="font-semibold text-gray-900 dark:text-white text-sm tracking-tight">
             SplitRight
           </span>
         </div>
@@ -30,8 +31,13 @@ export default function Navbar() {
           <button
             onClick={toggleTheme}
             className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all"
+            aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
           >
-            {dark ? "☀️" : "🌙"}
+            {dark ? (
+              <IconSun className="w-5 h-5" />
+            ) : (
+              <IconMoon className="w-5 h-5" />
+            )}
           </button>
           <button
             onClick={handleSignOut}

@@ -29,10 +29,11 @@ class ExpenseCreate(BaseModel):
     paid_by: str
     amount: float = Field(gt=0)
     description: str
-    category: str="other"
+    category: str = "other"
     split_type: SplitType = SplitType.equal
     splits: Optional[List[SplitInput]] = None
-    participants: List[str]
+    participants: List[str]                      # real user UUIDs only
+    guest_participants: Optional[List[str]] = None  # group_guest UUIDs
 
 # --models for settlements--
 class SettlementCreate(BaseModel):
@@ -42,4 +43,8 @@ class SettlementCreate(BaseModel):
 # --model for NLP--
 class NLPRequest(BaseModel):
     text: str
-    
+
+# --model for bill OCR--
+class BillParseRequest(BaseModel):
+    image_base64: str
+    mime_type: str = "image/jpeg"

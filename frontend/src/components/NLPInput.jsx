@@ -91,7 +91,7 @@ export default function NLPInput({ groupMembers, onParsed, currentUserId, curren
       });
 
       setText("");
-    } catch (err) {
+    } catch {
       setError("Could not parse that. Try rephrasing or fill manually.");
     } finally {
       setLoading(false);
@@ -101,7 +101,6 @@ export default function NLPInput({ groupMembers, onParsed, currentUserId, curren
   return (
     <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-4 space-y-3">
       <div className="flex items-center gap-2">
-        <span className="text-lg">✨</span>
         <p className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
           Natural language input
         </p>

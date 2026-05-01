@@ -99,3 +99,87 @@ def parse_expense_text(text: str):
         return ParsedExpense(**parsed)
     except Exception as e:
         return ParseError(error=f"Schema validation failed: {str(e)}")
+
+
+BILL_PROMPT = """You are a receipt/bill OCR parser for a bill-splitting app.
+
+Analyze this bill or receipt image carefully and extract:
+1. The GRAND TOTAL (the final amount the customer must pay — look for words like "Total", "Grand Total", "Amount Due", "Net Payable", "Total Amount")
+2. The merchant/establishment name (restaurant, store, hotel, etc.)
+3. A short description of what was purchased
+4. The category based on the merchant type
+
+Return ONLY valid JSON — no markdown, no explanation, no backticks:
+{
+  "amount": number,
+  "merchant_name": string,
+  "description": string,
+  "category": "food" | "travel" | "accommodation" | "utilities" | "other"
+}
+
+Category rules:
+- food: restaurant, cafe, bar, bakery, food court, grocery, supermarket, dining, swiggy, zomato
+- travel: uber, ola, cab, taxi, airport, airline, bus, train, fuel, petrol, toll, metro
+- accommodation: hotel, resort, airbnb, hostel, pg, rent, lodge
+- utilities: electricity, water, wifi, internet, phone bill, recharge, gas, subscription, netflix, spotify
+- other: anything else
+
+If you cannot find the total amount clearly, return:
+{ "error": "Cannot extract grand total from this bill" }
+"""
+
+
+class ParsedBill(BaseModel):
+    amount: float
+    merchant_name: Optional[str]
+    description: Optional[str]
+    category: Optional[str] = "other"
+
+
+def parse_bill_image(image_base64: str, mime_type: str = "image/jpeg"):
+    try:
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{mime_type};base64,{image_base64}"
+                            },
+                        },
+                        {
+                            "type": "text",
+                            "text": BILL_PROMPT,
+                        },
+                    ],
+                }
+            ],
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            temperature=0,
+        )
+    except Exception as e:
+        return ParseError(error=f"Vision model error: {str(e)}")
+
+    raw = chat_completion.choices[0].message.content.strip()
+
+    # Strip markdown code fences if model includes them
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+        raw = raw.strip()
+
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return ParseError(error="Model returned non-JSON response")
+
+    if "error" in parsed:
+        return ParseError(error=parsed["error"])
+
+    try:
+        return ParsedBill(**parsed)
+    except Exception as e:
+        return ParseError(error=f"Schema validation failed: {str(e)}")

@@ -11,8 +11,6 @@ bearer_scheme = HTTPBearer()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 JWKS_URL = f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json"
 
-print("JWKS_URL:", JWKS_URL)
-
 jwks_client = PyJWKClient(JWKS_URL)
 
 def get_current_user(

@@ -136,15 +136,19 @@ def join_group(group_id: str, current_user: dict = Depends(get_current_user)):
 def delete_group(group_id: str, current_user: dict = Depends(get_current_user)):
     user_id = current_user["user_id"]
 
-    group = supabase.table("groups")\
-        .select("*")\
-        .eq("id", group_id)\
-        .eq("created_by", user_id)\
+    # only admins can delete a group
+    member = supabase.table("group_members")\
+        .select("role")\
+        .eq("group_id", group_id)\
+        .eq("user_id", user_id)\
         .single()\
         .execute()
 
-    if not group.data:
-        raise HTTPException(status_code=404, detail="Group not found or not yours")
+    if not member.data:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    if member.data.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can delete this group")
 
     supabase.table("groups").delete().eq("id", group_id).execute()
 

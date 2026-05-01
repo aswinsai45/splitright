@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import api from "../lib/api";
 import Navbar from "../components/Navbar";
+import { IconRupeeBadge, IconUsers, IconTrash } from "../components/icons";
 
 export default function Dashboard() {
   const [groups, setGroups] = useState([]);
@@ -223,8 +224,8 @@ export default function Dashboard() {
           </div>
         ) : groups.length === 0 ? (
           <div className="text-center py-20">
-            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <span className="text-3xl">👥</span>
+            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-4 text-indigo-600 dark:text-indigo-300">
+              <IconUsers className="w-7 h-7" />
             </div>
             <p className="text-gray-500 dark:text-gray-400 text-sm">
               No groups yet. Create one to get started.
@@ -235,6 +236,42 @@ export default function Dashboard() {
             {groups.map((item) => {
               const group = item.groups;
               if (!group) return null;
+              // determine if current user is admin for this group
+              const isAdmin = (() => {
+                // Be defensive: the API may return roles under different keys/shapes.
+                const userId = user?.id;
+                if (!userId) return false;
+
+                // 1) Check explicit membership list on the group
+                if (group && Array.isArray(group.group_members)) {
+                  const me = group.group_members.find((m) => m.user_id === userId || m.id === userId);
+                  if (me && me.role) {
+                    const r = String(me.role).toLowerCase();
+                    if (r === "admin" || r === "owner" || r === "creator" || r === "administrator") return true;
+                  }
+                }
+
+                // 2) Some endpoints return the membership on the item wrapper
+                if (item && (item.role || item.my_role || item.user_role)) {
+                  const candidate = item.role || item.my_role || item.user_role;
+                  if (String(candidate).toLowerCase() === "admin") return true;
+                }
+
+                // 3) Some group objects include flags or owner fields
+                if (group) {
+                  if (group.owner_id && group.owner_id === userId) return true;
+                  if (group.created_by && group.created_by === userId) return true;
+                  if (group.is_admin || group.isOwner) return true;
+                  if (group.my_role && String(group.my_role).toLowerCase() === "admin") return true;
+                }
+
+                // 4) Some APIs include an `admins` array
+                if (group && Array.isArray(group.admins)) {
+                  if (group.admins.includes(userId) || group.admins.includes(String(userId))) return true;
+                }
+
+                return false;
+              })();
               return (
                 <div
                   key={item.group_id}
@@ -245,8 +282,8 @@ export default function Dashboard() {
                       onClick={() => navigate(`/group/${group.id}`)}
                       className="flex-1 cursor-pointer"
                     >
-                      <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/40 rounded-xl flex items-center justify-center mb-3">
-                        <span className="text-lg">✈️</span>
+                      <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl flex items-center justify-center mb-3 text-indigo-600 dark:text-indigo-300">
+                        <IconRupeeBadge className="w-5 h-5" />
                       </div>
                       <h3 className="font-semibold text-gray-900 dark:text-white text-sm">
                         {group.name}
@@ -258,13 +295,16 @@ export default function Dashboard() {
                       )}
                     </div>
 
-                    {/* Delete button */}
-                    <button
-                      onClick={() => deleteGroup(group.id)}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
-                    >
-                      🗑️
-                    </button>
+                    {/* Delete button (only visible to admins) */}
+                    {isAdmin && (
+                      <button
+                        onClick={() => deleteGroup(group.id)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+                        aria-label="Delete group"
+                      >
+                        <IconTrash className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
 
                   <p className="text-xs text-gray-400 dark:text-gray-600 mt-3">

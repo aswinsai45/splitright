@@ -52,7 +52,22 @@ def get_user_balance_summary(current_user: dict = Depends(get_current_user)):
             profile = m.get("profiles")
             name_map[m["user_id"]] = profile["display_name"] if profile and profile.get("display_name") else "Unknown"
 
-        balances = compute_net_balances(expenses.data)
+        # guests: assigned guests are mapped to their real user; unassigned show as "guest:<uuid>"
+        guests = supabase.table("group_guests")\
+            .select("id, display_name, assigned_to")\
+            .eq("group_id", group_id)\
+            .execute()
+
+        guest_assignments = {
+            g["id"]: g["assigned_to"]
+            for g in (guests.data or [])
+            if g.get("assigned_to")
+        }
+        for g in (guests.data or []):
+            if not g.get("assigned_to"):
+                name_map[f"guest:{g['id']}"] = g.get("display_name") or "Guest"
+
+        balances = compute_net_balances(expenses.data, guest_assignments=guest_assignments)
         transactions = simplify_debts(balances)
 
         # find transactions involving current user
@@ -136,8 +151,29 @@ def get_balances(group_id: str, current_user: dict = Depends(get_current_user)):
         profile = m.get("profiles")
         name_map[m["user_id"]] = profile["display_name"] if profile and profile.get("display_name") else "Unknown"
 
-    # compute raw net balances from expenses
-    balances = compute_net_balances(expenses.data)
+    # compute raw net balances from expenses — pass guest assignments so assigned
+    # guest splits/payers count toward the real user's balance; otherwise they show as "guest:<uuid>"
+    guests = supabase.table("group_guests")\
+        .select("id, assigned_to")\
+        .eq("group_id", group_id)\
+        .execute()
+
+    guest_assignments = {
+        g["id"]: g["assigned_to"]
+        for g in (guests.data or [])
+        if g.get("assigned_to")
+    }
+
+    # add names for unassigned guests
+    guests_for_names = supabase.table("group_guests")\
+        .select("id, display_name, assigned_to")\
+        .eq("group_id", group_id)\
+        .execute()
+    for g in (guests_for_names.data or []):
+        if not g.get("assigned_to"):
+            name_map[f"guest:{g['id']}"] = g.get("display_name") or "Guest"
+
+    balances = compute_net_balances(expenses.data, guest_assignments=guest_assignments)
 
     # fetch all settlements for this group and apply them to the net balances
     # A settlement of ₹X from paid_by → paid_to means:

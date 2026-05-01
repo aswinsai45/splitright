@@ -3,18 +3,10 @@ import { useNavigate, useParams } from "react-router-dom";
 import api from "../lib/api";
 import Navbar from "../components/Navbar";
 
-const CATEGORY_EMOJI = {
-  food: "🍕",
-  travel: "✈️",
-  accommodation: "🏠",
-  utilities: "💡",
-  other: "💸",
-};
-
 const SPLIT_LABEL = {
-  equal: "⚖️ Equal split",
-  exact: "💰 Exact amounts",
-  percentage: "% Percentage split",
+  equal: "Equal split",
+  exact: "Exact amounts",
+  percentage: "Percentage split",
 };
 
 export default function ExpenseDetail() {
@@ -74,10 +66,19 @@ export default function ExpenseDetail() {
     );
   }
 
-  const totalSplits = expense.expense_splits?.reduce(
-    (sum, s) => sum + parseFloat(s.amount),
-    0
-  ) ?? 0;
+  const totalSplits =
+    expense.expense_splits?.reduce((sum, s) => sum + parseFloat(s.amount), 0) ??
+    0;
+
+  const payerName =
+    expense.profiles?.display_name ||
+    expense.paid_by_guest?.assigned_profile?.display_name ||
+    expense.paid_by_guest?.display_name ||
+    "Unknown";
+  const payerAvatar =
+    expense.profiles?.avatar_url ||
+    expense.paid_by_guest?.assigned_profile?.avatar_url ||
+    null;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors duration-200">
@@ -101,8 +102,8 @@ export default function ExpenseDetail() {
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 mb-4">
           {/* Icon + title */}
           <div className="flex items-center gap-4 mb-6">
-            <div className="w-14 h-14 bg-indigo-100 dark:bg-indigo-900/40 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0">
-              {CATEGORY_EMOJI[expense.category] ?? "💸"}
+            <div className="w-14 h-14 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl flex items-center justify-center flex-shrink-0 text-indigo-600 dark:text-indigo-300">
+              <badge-indian-rupee className="w-7 h-7" />
             </div>
             <div>
               <h2 className="text-xl font-bold text-gray-900 dark:text-white leading-tight">
@@ -127,14 +128,14 @@ export default function ExpenseDetail() {
               <div className="flex items-center gap-2">
                 <img
                   src={
-                    expense.profiles?.avatar_url ||
-                    `https://ui-avatars.com/api/?name=${expense.profiles?.display_name || "U"}`
+                    payerAvatar ||
+                    `https://ui-avatars.com/api/?name=${payerName || "U"}`
                   }
                   className="w-5 h-5 rounded-full"
                   alt="payer"
                 />
                 <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                  {expense.profiles?.display_name || "Unknown"}
+                  {payerName}
                 </p>
               </div>
             </div>
@@ -165,8 +166,23 @@ export default function ExpenseDetail() {
               {expense.expense_splits?.map((split) => {
                 const pct =
                   totalSplits > 0
-                    ? ((parseFloat(split.amount) / parseFloat(expense.amount)) * 100).toFixed(1)
+                    ? (
+                        (parseFloat(split.amount) /
+                          parseFloat(expense.amount)) *
+                        100
+                      ).toFixed(1)
                     : "0.0";
+
+                const splitName =
+                  split.profiles?.display_name ||
+                  split.group_guest?.assigned_profile?.display_name ||
+                  split.group_guest?.display_name ||
+                  "Unknown";
+                const splitAvatar =
+                  split.profiles?.avatar_url ||
+                  split.group_guest?.assigned_profile?.avatar_url ||
+                  null;
+
                 return (
                   <div
                     key={split.id}
@@ -174,15 +190,15 @@ export default function ExpenseDetail() {
                   >
                     <img
                       src={
-                        split.profiles?.avatar_url ||
-                        `https://ui-avatars.com/api/?name=${split.profiles?.display_name || "U"}`
+                        splitAvatar ||
+                        `https://ui-avatars.com/api/?name=${splitName || "U"}`
                       }
                       className="w-8 h-8 rounded-full flex-shrink-0"
                       alt="participant"
                     />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                        {split.profiles?.display_name || "Unknown"}
+                        {splitName}
                       </p>
                       <div className="mt-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                         <div
@@ -221,14 +237,24 @@ export default function ExpenseDetail() {
             }
             className="flex-1 py-3 rounded-xl border border-indigo-500 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 font-medium text-sm transition-all"
           >
-            ✏️ Edit expense
+            <span className="inline-flex items-center justify-center gap-2">
+              <pencil-line className="w-4 h-4" />
+              Edit expense
+            </span>
           </button>
           <button
             onClick={handleDelete}
             disabled={deleting}
             className="flex-1 py-3 rounded-xl border border-red-400 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 font-medium text-sm transition-all disabled:opacity-50"
           >
-            {deleting ? "Deleting..." : "🗑️ Delete"}
+            {deleting ? (
+              "Deleting..."
+            ) : (
+              <span className="inline-flex items-center justify-center gap-2">
+                <trash-2 className="w-4 h-4" />
+                Delete
+              </span>
+            )}
           </button>
         </div>
       </div>

@@ -1,5 +1,5 @@
 from fastapi import Depends, FastAPI
-from routers import groups, expenses, balances, nlp
+from routers import groups, expenses, balances, nlp, guests
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
 from dependencies import get_current_user
@@ -20,6 +20,7 @@ app.include_router(groups.router, prefix="/groups", tags=["groups"])
 app.include_router(expenses.router, prefix="/expenses", tags=["expenses"])
 app.include_router(balances.router, prefix="/balances", tags=["balances"])
 app.include_router(nlp.router, prefix="/nlp", tags=["nlp"])
+app.include_router(guests.router, prefix="/groups", tags=["guests"])
 @app.get("/health")
 def health():
     return {"status": "ok"}

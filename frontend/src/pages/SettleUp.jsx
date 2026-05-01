@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import api from "../lib/api";
 import Navbar from "../components/Navbar";
 import { supabase } from "../lib/supabase";
+import { IconCheckCircle } from "../components/icons";
 
 export default function SettleUp() {
   const { id } = useParams();
@@ -76,8 +77,8 @@ export default function SettleUp() {
 
         {!balances || balances.transactions.length === 0 ? (
           <div className="text-center py-20">
-            <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <span className="text-3xl">✅</span>
+            <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4 text-green-600 dark:text-green-400">
+              <IconCheckCircle className="w-7 h-7" />
             </div>
             <p className="text-gray-900 dark:text-white font-semibold">
               All settled up!
@@ -96,12 +97,17 @@ export default function SettleUp() {
           <div className="space-y-3">
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               {balances.transactions.length} payment
-              {balances.transactions.length > 1 ? "s" : ""} needed to settle
-              all debts
+              {balances.transactions.length > 1 ? "s" : ""} needed to settle all
+              debts
             </p>
             {balances.transactions.map((txn, i) => {
               const iAmDebtor = currentUserId && txn.from_id === currentUserId;
               const iAmCreditor = currentUserId && txn.to_id === currentUserId;
+              const involvesGuest =
+                (typeof txn.from_id === "string" &&
+                  txn.from_id.startsWith("guest:")) ||
+                (typeof txn.to_id === "string" &&
+                  txn.to_id.startsWith("guest:"));
 
               return (
                 <div
@@ -135,7 +141,11 @@ export default function SettleUp() {
                     </span>
                   </div>
 
-                  {iAmDebtor ? (
+                  {involvesGuest ? (
+                    <div className="w-full py-2 text-center text-sm text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                      Assign guests to members to settle this
+                    </div>
+                  ) : iAmDebtor ? (
                     <button
                       onClick={() => handleSettle(txn)}
                       disabled={settling === txn.from_id}

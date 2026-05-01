@@ -1,6 +1,7 @@
 import { signInWithGoogle } from "../lib/supabase";
 import { useState } from "react";
-import { useTheme } from "../context/ThemeContext";
+import { useTheme } from "../context/useTheme";
+import { IconMoon, IconSun, IconHandCoins } from "../components/icons";
 
 export default function Login() {
   const [loading, setLoading] = useState(false);
@@ -22,16 +23,19 @@ export default function Login() {
       <button
         onClick={toggleTheme}
         className="fixed top-4 right-4 p-2 rounded-xl bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700 transition-all"
+        aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
       >
-        {dark ? "☀️" : "🌙"}
+        {dark ? (
+          <IconSun className="w-5 h-5" />
+        ) : (
+          <IconMoon className="w-5 h-5" />
+        )}
       </button>
 
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-indigo-600 rounded-2xl mb-4 shadow-lg">
-            <span className="text-2xl">⚡</span>
-          </div>
+          <IconHandCoins className="w-16 h-16 mx-auto mb-4 text-indigo-600" />
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white tracking-tight">
             SplitRight
           </h1>

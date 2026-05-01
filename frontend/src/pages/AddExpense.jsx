@@ -3,12 +3,14 @@ import { useNavigate, useParams } from "react-router-dom";
 import api from "../lib/api";
 import Navbar from "../components/Navbar";
 import NLPInput from "../components/NLPInput";
+import BillScanInput from "../components/BillScanInput";
 import { supabase } from "../lib/supabase";
 
 export default function AddExpense() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [members, setMembers] = useState([]);
+  const [groupGuests, setGroupGuests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [currentUserId, setCurrentUserId] = useState("");
   const [currentUserName, setCurrentUserName] = useState("");
@@ -62,9 +64,14 @@ export default function AddExpense() {
 
   async function fetchMembers() {
     try {
-      const { data } = await api.get(`/groups/${id}`);
+      const [groupRes, guestsRes] = await Promise.all([
+        api.get(`/groups/${id}`),
+        api.get(`/groups/${id}/guests`),
+      ]);
+      const data = groupRes.data;
       const members = data.group_members || [];
       setMembers(members);
+      setGroupGuests(guestsRes.data || []);
       setForm((f) => ({
         ...f,
         participants: members.map((m) => m.user_id),
@@ -148,57 +155,96 @@ export default function AddExpense() {
     }));
   }
 
-  function getSplitPreview() {
-    if (!form.amount || form.participants.length === 0) return {};
-    const amount = parseFloat(form.amount);
-
-    if (form.split_type === "equal") {
-      const share = amount / form.participants.length;
-      return Object.fromEntries(
-        form.participants.map((id) => [id, share.toFixed(2)]),
-      );
-    }
-
-    if (form.split_type === "exact") {
-      return form.custom_splits;
-    }
-
-    if (form.split_type === "percentage") {
-      const preview = {};
-      for (const id of form.participants) {
-        const pct = parseFloat(form.custom_splits[id] || 0);
-        preview[id] = ((pct / 100) * amount).toFixed(2);
-      }
-      return preview;
-    }
-
-    return {};
-  }
-
   async function handleSubmit() {
     if (!form.paid_by || !form.amount || !form.description) return;
     if (!isSplitValid()) return;
     setLoading(true);
 
     try {
+      const uuidRegex =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+      // 1. Identify which participants are guests (have placeholder IDs starting with "guest_")
+      const guestParticipantIds = form.participants.filter(
+        (pid) =>
+          guestMembers.some((g) => g.user_id === pid) ||
+          groupGuests.some((g) => g.id === pid),
+      );
+      const realParticipantIds = form.participants.filter(
+        (pid) => !guestParticipantIds.includes(pid)
+      );
+
+      // 2. Create guest records in DB for any guests that don't yet have a real UUID
+      //    (placeholder IDs look like "guest_name_timestamp" — not valid UUIDs)
+      const guestIdMap = {}; // placeholder ID → real DB UUID
+      for (const pid of guestParticipantIds) {
+        if (uuidRegex.test(pid)) {
+          // already a real UUID (created in a previous parse, stored in guestMembers)
+          guestIdMap[pid] = pid;
+        } else {
+          const guestMember = guestMembers.find((g) => g.user_id === pid);
+          const name = guestMember?.profiles?.display_name || "Guest";
+          const { data: newGuest } = await api.post(`/groups/${id}/guests`, {
+            display_name: name,
+          });
+          guestIdMap[pid] = newGuest.id;
+          // update guestMembers state so chips reflect real UUID
+          setGuestMembers((prev) =>
+            prev.map((g) =>
+              g.user_id === pid ? { ...g, user_id: newGuest.id } : g
+            )
+          );
+        }
+      }
+
+      const resolvedGuestUUIDs = guestParticipantIds.map((pid) => guestIdMap[pid]);
+
+      // 2b. Resolve paid_by if the user picked a locally-created guest chip as payer
+      let resolvedPaidBy = form.paid_by;
+      const localGuestPayer = guestMembers.find((g) => g.user_id === form.paid_by);
+      if (localGuestPayer) {
+        // payer selected as local guest; ensure it exists in DB and send as guest_uuid:<uuid>
+        if (uuidRegex.test(localGuestPayer.user_id)) {
+          resolvedPaidBy = `guest_uuid:${localGuestPayer.user_id}`;
+        } else {
+          const name = localGuestPayer?.profiles?.display_name || "Guest";
+          const { data: newGuest } = await api.post(`/groups/${id}/guests`, {
+            display_name: name,
+          });
+          setGuestMembers((prev) =>
+            prev.map((g) =>
+              g.user_id === localGuestPayer.user_id
+                ? { ...g, user_id: newGuest.id }
+                : g
+            )
+          );
+          resolvedPaidBy = `guest_uuid:${newGuest.id}`;
+        }
+      }
+
+      // 3. Build payload
       const payload = {
-        paid_by: form.paid_by,
+        paid_by: resolvedPaidBy,
         amount: parseFloat(form.amount),
         description: form.description,
         category: form.category,
         split_type: form.split_type,
-        participants: form.participants,
+        participants: realParticipantIds,
+        guest_participants: resolvedGuestUUIDs,
       };
 
       if (form.split_type !== "equal") {
-        payload.splits = form.participants.map((id) => ({
-          user_id: id,
-          amount:
+        payload.splits = form.participants.map((pid) => {
+          const realId = guestIdMap[pid]
+            ? `guest_uuid:${guestIdMap[pid]}`
+            : pid;
+          const amount =
             form.split_type === "exact"
-              ? parseFloat(form.custom_splits[id] || 0)
-              : (parseFloat(form.custom_splits[id] || 0) / 100) *
-                parseFloat(form.amount),
-        }));
+              ? parseFloat(form.custom_splits[pid] || 0)
+              : (parseFloat(form.custom_splits[pid] || 0) / 100) *
+                parseFloat(form.amount);
+          return { user_id: realId, amount };
+        });
       }
 
       await api.post(`/expenses/${id}`, payload);
@@ -234,6 +280,18 @@ export default function AddExpense() {
         </div>
 
         <div className="space-y-5">
+          {/* Bill OCR */}
+          <BillScanInput
+            onParsed={(parsed) =>
+              setForm((f) => ({
+                ...f,
+                amount: parsed.amount ?? f.amount,
+                description: parsed.description || f.description,
+                category: parsed.category || f.category,
+              }))
+            }
+          />
+
           {/* NLP Input */}
           <NLPInput
             groupMembers={members}
@@ -292,6 +350,27 @@ export default function AddExpense() {
                   {m.profiles?.display_name || "Unknown"}
                 </option>
               ))}
+              {groupGuests.length > 0 && (
+                <optgroup label="Guests">
+                  {groupGuests.map((g) => (
+                    <option key={g.id} value={`guest_uuid:${g.id}`}>
+                      {g.display_name}
+                      {g.assigned_to ? " (assigned)" : " (guest)"}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {guestMembers.length > 0 && (
+                <optgroup label="New guests">
+                  {guestMembers
+                    .filter((g) => !groupGuests.some((gg) => gg.id === g.user_id))
+                    .map((g) => (
+                      <option key={g.user_id} value={g.user_id}>
+                        {g.profiles?.display_name || "Guest"} (new)
+                      </option>
+                    ))}
+                </optgroup>
+              )}
             </select>
           </div>
 
@@ -305,11 +384,11 @@ export default function AddExpense() {
               }
               className={inputClass}
             >
-              <option value="other">Other 💸</option>
-              <option value="food">Food 🍕</option>
-              <option value="travel">Travel ✈️</option>
-              <option value="accommodation">Accommodation 🏠</option>
-              <option value="utilities">Utilities 💡</option>
+              <option value="other">Other</option>
+              <option value="food">Food</option>
+              <option value="travel">Travel</option>
+              <option value="accommodation">Accommodation</option>
+              <option value="utilities">Utilities</option>
             </select>
           </div>
 
@@ -336,10 +415,10 @@ export default function AddExpense() {
           }`}
                 >
                   {type === "equal"
-                    ? "⚖️ Equal"
+                    ? "Equal"
                     : type === "exact"
-                      ? "💰 Exact"
-                      : "% Percent"}
+                      ? "Exact"
+                      : "Percent"}
                 </button>
               ))}
             </div>
@@ -349,7 +428,19 @@ export default function AddExpense() {
           <div>
             <label className={labelClass}>Split between</label>
             <div className="flex flex-wrap gap-2 mb-3">
-              {[...members, ...guestMembers].map((m) => (
+              {[
+                ...members,
+                ...groupGuests.map((g) => ({
+                  user_id: g.id,
+                  profiles: {
+                    display_name: g.display_name,
+                    avatar_url: g.profiles?.avatar_url || null,
+                  },
+                  isGuest: true,
+                  canRemove: false,
+                })),
+                ...guestMembers.map((g) => ({ ...g, canRemove: true })),
+              ].map((m) => (
                 <div key={m.user_id} className="relative group/chip">
                   <button
                     onClick={() => toggleParticipant(m.user_id)}
@@ -372,7 +463,7 @@ export default function AddExpense() {
                     )}
                   </button>
                   {/* Remove button only for guests */}
-                  {m.isGuest && (
+                  {m.isGuest && m.canRemove && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -431,7 +522,18 @@ export default function AddExpense() {
             {form.participants.length > 0 && form.split_type !== "equal" && (
               <div className="space-y-2 mt-3">
                 {form.participants.map((uid) => {
-                  const allMembers = [...members, ...guestMembers];
+                  const allMembers = [
+                    ...members,
+                    ...groupGuests.map((g) => ({
+                      user_id: g.id,
+                      profiles: {
+                        display_name: g.display_name,
+                        avatar_url: g.profiles?.avatar_url || null,
+                      },
+                      isGuest: true,
+                    })),
+                    ...guestMembers,
+                  ];
                   const member = allMembers.find((m) => m.user_id === uid);
                   return (
                     <div key={uid} className="flex items-center gap-3">
